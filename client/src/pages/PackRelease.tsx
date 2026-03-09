@@ -13,7 +13,9 @@ import PageHeader from "@/components/PageHeader";
 import ChartCard from "@/components/ChartCard";
 import DataTable from "@/components/DataTable";
 import PackSelector from "@/components/PackSelector";
-import { releaseData, MUSIC_PACKS, formatNum, formatUSD, getPackFromSlug } from "@/lib/data";
+import { MUSIC_PACKS, formatNum, formatUSD, getPackFromSlug } from "@/lib/data";
+import { usePackReleaseData } from "@/lib/dataService";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { CHART_COLORS, AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "@/lib/chartTheme";
 import { motion } from "framer-motion";
 import { ArrowRight, Calendar } from "lucide-react";
@@ -57,7 +59,8 @@ export default function PackRelease() {
     setLocation(`/release/${encodeURIComponent(pack)}`);
   };
 
-  const d = releaseData[selectedPack];
+  const { data: allReleaseData, isLoading, isFromApi, lastUpdated, dataDate } = usePackReleaseData();
+  const d = allReleaseData[selectedPack];
   if (!d) return null;
 
   // Daily sales decay — days_from_release vs gross_revenue_usd_1d
@@ -105,6 +108,7 @@ export default function PackRelease() {
       {/* Pack Selector */}
       <div className="flex flex-wrap gap-4 items-end mb-6">
         <PackSelector value={selectedPack} onChange={handlePackChange} />
+        <DataSourceBadge isFromApi={isFromApi} lastUpdated={lastUpdated} dataDate={dataDate} isLoading={isLoading} />
         <div className="flex items-center gap-2 text-sm text-muted-foreground glass-card px-3 py-2 rounded-lg">
           <Calendar size={14} />
           <span>Release: <span className="text-neon-cyan font-mono">{d.original_release_date}</span></span>

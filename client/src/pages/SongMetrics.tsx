@@ -15,7 +15,9 @@ import PageHeader from "@/components/PageHeader";
 import ChartCard from "@/components/ChartCard";
 import DataTable from "@/components/DataTable";
 import PackSelector from "@/components/PackSelector";
-import { songMetricsData, MUSIC_PACKS, SONGS, COUNTRY_LABELS, INTERFACE_LABELS, formatNum, getPackFromSlug } from "@/lib/data";
+import { MUSIC_PACKS, SONGS, COUNTRY_LABELS, INTERFACE_LABELS, formatNum, getPackFromSlug } from "@/lib/data";
+import { useSongMetricsData } from "@/lib/dataService";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { CHART_COLORS, CHART_PALETTE, AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "@/lib/chartTheme";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -53,7 +55,8 @@ export default function SongMetrics() {
   };
 
   const key = `${selectedPack} — ${selectedSong}`;
-  const d = songMetricsData[key];
+  const { data: allSongData, isLoading, isFromApi, lastUpdated, dataDate } = useSongMetricsData();
+  const d = allSongData[key];
   if (!d) return null;
 
   // SUM(event_count_1d) grouped by ds
@@ -122,7 +125,7 @@ export default function SongMetrics() {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
+      <div className="flex flex-wrap gap-4 items-end mb-6">
         <PackSelector value={selectedPack} onChange={handlePackChange} />
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
@@ -141,6 +144,7 @@ export default function SongMetrics() {
             </SelectContent>
           </Select>
         </div>
+        <DataSourceBadge isFromApi={isFromApi} lastUpdated={lastUpdated} dataDate={dataDate} isLoading={isLoading} />
       </div>
 
       {/* Gameplays Chart — event_count_1d over time */}

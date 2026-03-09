@@ -12,11 +12,13 @@ import PageHeader from "@/components/PageHeader";
 import KpiCard from "@/components/KpiCard";
 import ChartCard from "@/components/ChartCard";
 import DataTable from "@/components/DataTable";
-import { salesOverallData, formatNum, formatUSD, COUNTRY_LABELS } from "@/lib/data";
+import { formatNum, formatUSD, COUNTRY_LABELS } from "@/lib/data";
+import { useSalesOverallData } from "@/lib/dataService";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { CHART_COLORS, CHART_PALETTE, AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "@/lib/chartTheme";
 
 export default function SalesOverall() {
-  const d = salesOverallData;
+  const { data: d, isLoading, isFromApi, lastUpdated, dataDate } = useSalesOverallData();
 
   // SUM(gross_revenue_usd_1d) grouped by ds
   const revenueTimelineData = useMemo(() =>
@@ -101,6 +103,10 @@ export default function SalesOverall() {
         title="Music Pack Sales — Overall"
         description="Revenue, purchasers, attach rates, and top-performing content"
       />
+
+      <div className="mb-4">
+        <DataSourceBadge isFromApi={isFromApi} lastUpdated={lastUpdated} dataDate={dataDate} isLoading={isLoading} />
+      </div>
 
       {/* KPIs — from digest_oculus_beatsaber_iap */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-8">

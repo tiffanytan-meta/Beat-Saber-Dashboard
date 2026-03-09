@@ -11,13 +11,15 @@ import {
 import PageHeader from "@/components/PageHeader";
 import KpiCard from "@/components/KpiCard";
 import ChartCard from "@/components/ChartCard";
-import { overviewData, formatNum } from "@/lib/data";
+import { formatNum } from "@/lib/data";
+import { useOverviewData } from "@/lib/dataService";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { CHART_COLORS, CHART_PALETTE, AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "@/lib/chartTheme";
 
 const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663319088936/Xjt8uekCvgUMTbSr3yvdQX/hero-banner-coZ5Ns3PDqGWaeZwK6Fnmg.webp";
 
 export default function Overview() {
-  const d = overviewData;
+  const { data: d, isLoading, isFromApi, lastUpdated, dataDate } = useOverviewData();
 
   // CARDINALITY(MERGE(dau_cnt_hyperlog)), wau_cnt_hyperlog, mau_cnt_hyperlog
   const activeUsersData = useMemo(() =>
@@ -73,6 +75,10 @@ export default function Overview() {
         description="Beat Saber performance at a glance — active users, engagement, and demographics"
         bgImage={HERO_BG}
       />
+
+      <div className="mb-4">
+        <DataSourceBadge isFromApi={isFromApi} lastUpdated={lastUpdated} dataDate={dataDate} isLoading={isLoading} />
+      </div>
 
       {/* KPIs — from digest_oculus_ipauai_v2_view */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-8">

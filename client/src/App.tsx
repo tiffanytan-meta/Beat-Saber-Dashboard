@@ -10,8 +10,8 @@ import IndividualPack from "./pages/IndividualPack";
 import PackRelease from "./pages/PackRelease";
 import SongMetrics from "./pages/SongMetrics";
 import NotFound from "./pages/NotFound";
-
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <DashboardLayout>
       <Switch>

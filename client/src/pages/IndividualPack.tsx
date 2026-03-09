@@ -14,7 +14,9 @@ import KpiCard from "@/components/KpiCard";
 import ChartCard from "@/components/ChartCard";
 import DataTable from "@/components/DataTable";
 import PackSelector from "@/components/PackSelector";
-import { individualPackData, MUSIC_PACKS, formatNum, formatUSD, getPackFromSlug } from "@/lib/data";
+import { MUSIC_PACKS, formatNum, formatUSD, getPackFromSlug } from "@/lib/data";
+import { useIndividualPackData } from "@/lib/dataService";
+import DataSourceBadge from "@/components/DataSourceBadge";
 import { CHART_COLORS, CHART_PALETTE, AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "@/lib/chartTheme";
 
 const MUSIC_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663319088936/Xjt8uekCvgUMTbSr3yvdQX/music-pack-bg-39erBNsyyeqsgik2sRMQRv.webp";
@@ -32,7 +34,8 @@ export default function IndividualPack() {
     setLocation(`/pack/${encodeURIComponent(pack)}`);
   };
 
-  const d = individualPackData[selectedPack];
+  const { data: allPackData, isLoading, isFromApi, lastUpdated, dataDate } = useIndividualPackData();
+  const d = allPackData[selectedPack];
 
   // SUM(gross_revenue_usd_1d) and CARDINALITY(MERGE(distinct_rev_users_hyperlog_1d))
   const salesData = useMemo(() => {
@@ -100,8 +103,9 @@ export default function IndividualPack() {
       />
 
       {/* Pack Selector */}
-      <div className="mb-6">
+      <div className="flex items-center gap-4 mb-6 flex-wrap">
         <PackSelector value={selectedPack} onChange={handlePackChange} />
+        <DataSourceBadge isFromApi={isFromApi} lastUpdated={lastUpdated} dataDate={dataDate} isLoading={isLoading} />
       </div>
 
       {/* KPIs — from digest_oculus_beatsaber_iap and cube_oculus_beatsaber_metrics */}
