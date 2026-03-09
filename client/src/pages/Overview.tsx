@@ -1,5 +1,6 @@
 /*
  * Overview Page — Active users, engagement, demographics
+ * Source: digest_oculus_ipauai_v2_view, cube_oculus_ipauai_v2_lite
  * Neon Arcade: Space Grotesk display, DM Sans body, neon cyan/magenta accents
  */
 import { useMemo } from "react";
@@ -18,41 +19,50 @@ const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663319088936/Xjt8ue
 export default function Overview() {
   const d = overviewData;
 
+  // CARDINALITY(MERGE(dau_cnt_hyperlog)), wau_cnt_hyperlog, mau_cnt_hyperlog
   const activeUsersData = useMemo(() =>
-    d.activeUsers.labels.map((label, i) => ({
-      month: label,
-      DAU: d.activeUsers.dau[i],
-      WAU: d.activeUsers.wau[i],
-      MAU: d.activeUsers.mau[i],
+    d.activeUsers.ds.map((ds, i) => ({
+      ds,
+      DAP: d.activeUsers.dap_cnt[i],
+      WAP: d.activeUsers.wap_cnt[i],
+      MAP: d.activeUsers.map_cnt[i],
     })), [d]
   );
 
+  // daily_stickiness, weekly_stickiness, monthly_stickiness
   const stickinessData = useMemo(() =>
-    d.stickiness.labels.map((label, i) => ({
-      month: label,
-      value: d.stickiness.values[i],
+    d.stickiness.ds.map((ds, i) => ({
+      ds,
+      "Daily": d.stickiness.daily_stickiness[i],
+      "Weekly": d.stickiness.weekly_stickiness[i],
+      "Monthly": d.stickiness.monthly_stickiness[i],
     })), [d]
   );
 
+  // attach_rate_1d, attach_rate_lifetime from cube_oculus_ipauai_v2_lite
   const attachData = useMemo(() =>
-    d.attachRate.labels.map((label, i) => ({
-      month: label,
-      "Quest 2": d.attachRate.quest2[i],
-      "Quest 3": d.attachRate.quest3[i],
-      "Quest Pro": d.attachRate.questPro[i],
+    d.attachRate.ds.map((ds, i) => ({
+      ds,
+      "Daily Attach Rate": d.attachRate.attach_rate_1d[i],
+      "Lifetime Attach Rate": d.attachRate.attach_rate_lifetime[i],
     })), [d]
   );
 
-  const genderData = useMemo(() => [
-    { name: "Male", value: d.genderDistribution.male },
-    { name: "Female", value: d.genderDistribution.female },
-    { name: "Other", value: d.genderDistribution.other },
-  ], [d]);
+  // Gender distribution: Beat Saber vs Quest comparison
+  const genderData = useMemo(() =>
+    d.genderDistribution.map(g => ({
+      name: g.u_fb_gender === "male" ? "Male" : g.u_fb_gender === "female" ? "Female" : "Unknown",
+      bs_pct: g.bs_pct,
+      quest_pct: g.quest_pct,
+    })), [d]
+  );
 
+  // Age distribution: Beat Saber vs Quest comparison
   const ageData = useMemo(() =>
-    d.ageDistribution.labels.map((label, i) => ({
-      age: label,
-      value: d.ageDistribution.values[i],
+    d.ageDistribution.map(a => ({
+      age: a.u_fb_age_bucket,
+      "Beat Saber": a.bs_pct,
+      "Quest Overall": a.quest_pct,
     })), [d]
   );
 
@@ -64,32 +74,32 @@ export default function Overview() {
         bgImage={HERO_BG}
       />
 
-      {/* KPIs */}
+      {/* KPIs — from digest_oculus_ipauai_v2_view */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-8">
-        <KpiCard label="Monthly Active Users" value={d.kpis.totalMAU} index={0} />
-        <KpiCard label="DAU / MAU Ratio" value={d.kpis.dauMauRatio} index={1} />
-        <KpiCard label="Avg Session Length" value={d.kpis.avgSessionMin + " min"} index={2} />
-        <KpiCard label="Attach Rate (Quest 3)" value={d.kpis.attachRateQ3} index={3} />
-        <KpiCard label="Total Players (All Time)" value={d.kpis.totalPlayers} index={4} />
-        <KpiCard label="Avg Songs / Session" value={d.kpis.avgSongsPerSession} index={5} />
+        <KpiCard label="Monthly Active People" value={d.kpis.map_cnt} index={0} />
+        <KpiCard label="DAP / MAP Ratio" value={d.kpis.dap_per_map} index={1} />
+        <KpiCard label="Daily Stickiness" value={d.kpis.daily_stickiness} index={2} />
+        <KpiCard label="Attach Rate (Lifetime)" value={d.kpis.attach_rate_lifetime} index={3} />
+        <KpiCard label="Lifetime Active People" value={d.kpis.lap_cnt} index={4} />
+        <KpiCard label="Weekly Stickiness" value={d.kpis.weekly_stickiness} index={5} />
       </div>
 
-      {/* Active Users Chart — Full Width */}
+      {/* Active Users Chart — dap_cnt, wap_cnt, map_cnt */}
       <div className="mb-6">
-        <ChartCard title="Active Users" badge="12 months" height="h-[350px]">
+        <ChartCard title="Active People" badge="12 months" height="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={activeUsersData}>
               <CartesianGrid {...GRID_STYLE} />
-              <XAxis dataKey="month" tick={AXIS_STYLE} />
+              <XAxis dataKey="ds" tick={AXIS_STYLE} />
               <YAxis tick={AXIS_STYLE} tickFormatter={(v) => formatNum(v)} />
               <Tooltip
                 {...TOOLTIP_STYLE}
                 formatter={(value: number, name: string) => [formatNum(value), name]}
               />
               <Legend />
-              <Line type="monotone" dataKey="DAU" stroke={CHART_COLORS.cyan} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="WAU" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="MAU" stroke={CHART_COLORS.magenta} strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="DAP" stroke={CHART_COLORS.cyan} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 6 }} name="DAP (Daily)" />
+              <Line type="monotone" dataKey="WAP" stroke={CHART_COLORS.blue} strokeWidth={2} dot={{ r: 3 }} name="WAP (Weekly)" />
+              <Line type="monotone" dataKey="MAP" stroke={CHART_COLORS.magenta} strokeWidth={2} dot={{ r: 3 }} name="MAP (Monthly)" />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -97,74 +107,62 @@ export default function Overview() {
 
       {/* Two-column charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <ChartCard title="Stickiness (DAU/MAU %)">
+        <ChartCard title="Stickiness (Retention Rates)">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={stickinessData}>
               <CartesianGrid {...GRID_STYLE} />
-              <XAxis dataKey="month" tick={AXIS_STYLE} />
+              <XAxis dataKey="ds" tick={AXIS_STYLE} />
               <YAxis tick={AXIS_STYLE} tickFormatter={(v) => v + "%"} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [value + "%", "DAU/MAU"]} />
-              <Line type="monotone" dataKey="value" stroke={CHART_COLORS.green} strokeWidth={2} fill={CHART_COLORS.green} fillOpacity={0.1} dot={{ r: 3 }} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [value + "%"]} />
+              <Legend />
+              <Line type="monotone" dataKey="Daily" stroke={CHART_COLORS.cyan} strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Weekly" stroke={CHART_COLORS.green} strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Monthly" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Attach Rate by Device">
+        <ChartCard title="Attach Rate (DAP & Lifetime)">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={attachData}>
               <CartesianGrid {...GRID_STYLE} />
-              <XAxis dataKey="month" tick={AXIS_STYLE} />
+              <XAxis dataKey="ds" tick={AXIS_STYLE} />
               <YAxis tick={AXIS_STYLE} tickFormatter={(v) => v + "%"} />
               <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [value + "%"]} />
               <Legend />
-              <Line type="monotone" dataKey="Quest 2" stroke={CHART_COLORS.cyan} strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="Quest 3" stroke={CHART_COLORS.green} strokeWidth={2} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="Quest Pro" stroke={CHART_COLORS.magenta} strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Daily Attach Rate" stroke={CHART_COLORS.cyan} strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="Lifetime Attach Rate" stroke={CHART_COLORS.magenta} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      {/* Demographics */}
+      {/* Demographics — Beat Saber vs Quest comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Gender Distribution" height="h-[300px]">
+        <ChartCard title="Gender Distribution (BS vs Quest)" height="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={genderData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={3}
-                dataKey="value"
-                label={({ name, percent, x, y }) => (
-                  <text x={x} y={y} fill="#e2e8f0" fontSize={12} fontFamily="'DM Sans', sans-serif" textAnchor="middle">
-                    {`${name} ${(percent * 100).toFixed(0)}%`}
-                  </text>
-                )}
-              >
-                {genderData.map((_, i) => (
-                  <Cell key={i} fill={CHART_PALETTE[i]} stroke="none" />
-                ))}
-              </Pie>
-              <Tooltip {...TOOLTIP_STYLE} />
-            </PieChart>
+            <BarChart data={genderData}>
+              <CartesianGrid {...GRID_STYLE} />
+              <XAxis dataKey="name" tick={AXIS_STYLE} />
+              <YAxis tick={AXIS_STYLE} tickFormatter={(v) => v + "%"} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [value + "%"]} />
+              <Legend />
+              <Bar dataKey="bs_pct" name="Beat Saber" fill={CHART_COLORS.cyan} fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="quest_pct" name="Quest Overall" fill={CHART_COLORS.magenta} fillOpacity={0.5} radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Age Distribution" height="h-[300px]">
+        <ChartCard title="Age Distribution (BS vs Quest)" height="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={ageData}>
               <CartesianGrid {...GRID_STYLE} />
               <XAxis dataKey="age" tick={AXIS_STYLE} />
               <YAxis tick={AXIS_STYLE} tickFormatter={(v) => v + "%"} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [value + "%", "Players"]} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {ageData.map((_, i) => (
-                  <Cell key={i} fill={CHART_PALETTE[i]} />
-                ))}
-              </Bar>
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [value + "%"]} />
+              <Legend />
+              <Bar dataKey="Beat Saber" fill={CHART_COLORS.cyan} fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Quest Overall" fill={CHART_COLORS.magenta} fillOpacity={0.5} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

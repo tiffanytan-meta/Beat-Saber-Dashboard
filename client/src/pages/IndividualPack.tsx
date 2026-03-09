@@ -1,6 +1,7 @@
 /*
  * Individual Music Pack Page — Deep-dive into a specific music pack
- * Sales, purchasers, demographics, and individual song purchases
+ * Source: digest_oculus_beatsaber_iap, cube_oculus_beatsaber_metrics
+ * Queries: % of Gameplays, Individual Music Pack - Sales in Period
  */
 import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
@@ -33,47 +34,51 @@ export default function IndividualPack() {
 
   const d = individualPackData[selectedPack];
 
+  // SUM(gross_revenue_usd_1d) and CARDINALITY(MERGE(distinct_rev_users_hyperlog_1d))
   const salesData = useMemo(() => {
     if (!d) return [];
-    return d.sales.labels.map((label, i) => ({
-      month: label,
-      units: d.sales.units[i],
-      revenue: d.sales.revenue[i],
+    return d.sales.ds.map((ds, i) => ({
+      ds,
+      gross_revenue_usd_1d: d.sales.gross_revenue_usd_1d[i],
+      distinct_rev_users_1d: d.sales.distinct_rev_users_1d[i],
     }));
   }, [d]);
 
+  // New IAP buyers — mass entitled vs non-mass entitled
   const purchaserData = useMemo(() => {
     if (!d) return [];
-    return d.purchasers.labels.map((label, i) => ({
-      month: label,
-      "New Purchasers": d.purchasers.newPurchasers[i],
-      "Repeat Purchasers": d.purchasers.repeatPurchasers[i],
+    return d.purchasers.ds.map((ds, i) => ({
+      ds,
+      "New IAP Buyers": d.purchasers.new_iap_buyers[i],
+      "Mass Entitled Buyers": d.purchasers.mass_entitled_buyers[i],
     }));
   }, [d]);
 
+  // Gender breakdown from cube_oculus_beatsaber_metrics.u_fb_gender
   const genderData = useMemo(() => {
     if (!d) return [];
-    return d.genderBreakdown.labels.map((label, i) => ({
-      name: label,
-      value: d.genderBreakdown.values[i],
+    return d.genderBreakdown.map(g => ({
+      name: g.u_fb_gender === "male" ? "Male" : g.u_fb_gender === "female" ? "Female" : "Unknown",
+      value: g.event_count_pct,
     }));
   }, [d]);
 
+  // Song purchases from digest_oculus_beatsaber_iap per levelid
   const songTableData = useMemo(() => {
     if (!d) return [];
     return d.songPurchases.map((s, i) => ({
       rank: i + 1,
-      song: s.name,
-      units: s.units,
-      revenue: s.revenue,
+      levelid: s.levelid,
+      distinct_rev_users: s.distinct_rev_users,
+      gross_revenue_usd: s.gross_revenue_usd,
     }));
   }, [d]);
 
   const songColumns = [
     { key: "rank", label: "#", align: "center" as const },
-    { key: "song", label: "Song" },
-    { key: "units", label: "Units", align: "right" as const, render: (v: unknown) => <span className="font-mono text-neon-cyan">{formatNum(v as number)}</span> },
-    { key: "revenue", label: "Revenue", align: "right" as const, render: (v: unknown) => <span className="font-mono text-neon-green">{formatUSD(v as number)}</span> },
+    { key: "levelid", label: "Song (Level ID)" },
+    { key: "distinct_rev_users", label: "Purchasers", align: "right" as const, render: (v: unknown) => <span className="font-mono text-neon-cyan">{formatNum(v as number)}</span> },
+    { key: "gross_revenue_usd", label: "Revenue (USD)", align: "right" as const, render: (v: unknown) => <span className="font-mono text-neon-green">{formatUSD(v as number)}</span> },
   ];
 
   if (!d) {
@@ -99,37 +104,37 @@ export default function IndividualPack() {
         <PackSelector value={selectedPack} onChange={handlePackChange} />
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — from digest_oculus_beatsaber_iap and cube_oculus_beatsaber_metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-8">
-        <KpiCard label="% of Gameplays" value={d.gameplayPct + "%"} index={0} />
-        <KpiCard label="Day 1 Purchase Rate" value={d.purchaseRate.day1 + "%"} index={1} />
-        <KpiCard label="Week 1 Purchase Rate" value={d.purchaseRate.week1 + "%"} index={2} />
-        <KpiCard label="Month 1 Purchase Rate" value={d.purchaseRate.month1 + "%"} index={3} />
-        <KpiCard label="Overall Purchase Rate" value={d.purchaseRate.overall + "%"} index={4} />
+        <KpiCard label="% of Gameplays" value={d.gameplay_pct + "%"} index={0} />
+        <KpiCard label="Day 1 Attach Rate" value={d.attach_rates.attach_rate_l1 + "%"} index={1} />
+        <KpiCard label="Week 1 Attach Rate" value={d.attach_rates.attach_rate_l7 + "%"} index={2} />
+        <KpiCard label="Month 1 Attach Rate" value={d.attach_rates.attach_rate_l28 + "%"} index={3} />
+        <KpiCard label="Overall Attach Rate" value={d.attach_rates.attach_rate_overall + "%"} index={4} />
         <KpiCard
-          label="Week 1 / Week 2 Sales"
-          value={formatNum(d.week1_2.week1)}
-          subtitle={`Week 2: ${formatNum(d.week1_2.week2)}`}
+          label="Sales (7d / 28d)"
+          value={formatUSD(d.sales_windows.sales_7d)}
+          subtitle={`28d: ${formatUSD(d.sales_windows.sales_28d)}`}
           index={5}
         />
       </div>
 
-      {/* Sales Chart — Full Width */}
+      {/* Sales Chart — gross_revenue_usd_1d + distinct_rev_users_1d */}
       <div className="mb-6">
-        <ChartCard title={`${selectedPack} — Sales (Units + Revenue)`} height="h-[350px]">
+        <ChartCard title={`${selectedPack} — Revenue & Purchasers`} height="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={salesData}>
               <CartesianGrid {...GRID_STYLE} />
-              <XAxis dataKey="month" tick={AXIS_STYLE} />
-              <YAxis yAxisId="left" tick={AXIS_STYLE} tickFormatter={(v) => formatNum(v)} />
-              <YAxis yAxisId="right" orientation="right" tick={AXIS_STYLE} tickFormatter={(v) => formatUSD(v)} />
+              <XAxis dataKey="ds" tick={AXIS_STYLE} />
+              <YAxis yAxisId="left" tick={AXIS_STYLE} tickFormatter={(v) => formatUSD(v)} />
+              <YAxis yAxisId="right" orientation="right" tick={AXIS_STYLE} tickFormatter={(v) => formatNum(v)} />
               <Tooltip {...TOOLTIP_STYLE} formatter={(value: number, name: string) => [
-                name === "units" ? formatNum(value) : formatUSD(value),
-                name === "units" ? "Units" : "Revenue"
+                name === "distinct_rev_users_1d" ? formatNum(value) : formatUSD(value),
+                name === "distinct_rev_users_1d" ? "Purchasers" : "Revenue"
               ]} />
               <Legend />
-              <Bar yAxisId="left" dataKey="units" fill={CHART_COLORS.cyan} fillOpacity={0.6} radius={[4, 4, 0, 0]} name="Units" />
-              <Line yAxisId="right" type="monotone" dataKey="revenue" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 3 }} name="Revenue ($)" />
+              <Bar yAxisId="left" dataKey="gross_revenue_usd_1d" fill={CHART_COLORS.cyan} fillOpacity={0.6} radius={[4, 4, 0, 0]} name="Revenue (USD)" />
+              <Line yAxisId="right" type="monotone" dataKey="distinct_rev_users_1d" stroke={CHART_COLORS.amber} strokeWidth={2} dot={{ r: 3 }} name="Purchasers" />
             </ComposedChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -137,21 +142,21 @@ export default function IndividualPack() {
 
       {/* Two-column */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <ChartCard title="Purchasers (New vs Repeat)">
+        <ChartCard title="New IAP Buyers (ME vs Non-ME)">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={purchaserData}>
               <CartesianGrid {...GRID_STYLE} />
-              <XAxis dataKey="month" tick={AXIS_STYLE} />
+              <XAxis dataKey="ds" tick={AXIS_STYLE} />
               <YAxis tick={AXIS_STYLE} tickFormatter={(v) => formatNum(v)} />
               <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [formatNum(value)]} />
               <Legend />
-              <Bar dataKey="New Purchasers" stackId="a" fill={CHART_COLORS.green} fillOpacity={0.8} />
-              <Bar dataKey="Repeat Purchasers" stackId="a" fill={CHART_COLORS.magenta} fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="New IAP Buyers" stackId="a" fill={CHART_COLORS.green} fillOpacity={0.8} />
+              <Bar dataKey="Mass Entitled Buyers" stackId="a" fill={CHART_COLORS.magenta} fillOpacity={0.8} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Gender Breakdown (Lifetime)" height="h-[300px]">
+        <ChartCard title="Gender Breakdown (u_fb_gender)" height="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -162,13 +167,13 @@ export default function IndividualPack() {
                 outerRadius={85}
                 paddingAngle={3}
                 dataKey="value"
-                label={({ name, percent, x, y }) => (
+                label={({ name, percent, x, y }: { name: string; percent: number; x: number; y: number }) => (
                   <text x={x} y={y} fill="#e2e8f0" fontSize={12} fontFamily="'DM Sans', sans-serif" textAnchor="middle">
                     {`${name} ${(percent * 100).toFixed(0)}%`}
                   </text>
                 )}
               >
-                {genderData.map((_, i) => (
+                {genderData.map((_: unknown, i: number) => (
                   <Cell key={i} fill={CHART_PALETTE[i]} stroke="none" />
                 ))}
               </Pie>
@@ -180,7 +185,7 @@ export default function IndividualPack() {
 
       {/* Song Purchases Table */}
       <DataTable
-        title={`${selectedPack} — Single Song Purchases`}
+        title={`${selectedPack} — Song-Level Sales`}
         columns={songColumns}
         data={songTableData}
       />

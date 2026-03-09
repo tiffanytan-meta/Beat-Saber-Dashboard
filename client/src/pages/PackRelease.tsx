@@ -1,21 +1,22 @@
 /*
  * Pack Release Page — Release impact analysis
- * Sales decay, cumulative traction, before/after comparisons
+ * Source: digest_oculus_beatsaber_iap
+ * Query: Cumulative Sales by Music Pack - Days Since Original Release
  */
 import { useState, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  ResponsiveContainer, XAxis, YAxis,
   CartesianGrid, Tooltip, AreaChart, Area
 } from "recharts";
 import PageHeader from "@/components/PageHeader";
 import ChartCard from "@/components/ChartCard";
 import DataTable from "@/components/DataTable";
 import PackSelector from "@/components/PackSelector";
-import { releaseData, MUSIC_PACKS, formatNum, getPackFromSlug } from "@/lib/data";
+import { releaseData, MUSIC_PACKS, formatNum, formatUSD, getPackFromSlug } from "@/lib/data";
 import { CHART_COLORS, AXIS_STYLE, GRID_STYLE, TOOLTIP_STYLE } from "@/lib/chartTheme";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Calendar } from "lucide-react";
 
 function CompareCard({ title, beforeValue, afterValue, prefix = "", suffix = "" }: {
   title: string; beforeValue: string; afterValue: string; prefix?: string; suffix?: string;
@@ -59,36 +60,39 @@ export default function PackRelease() {
   const d = releaseData[selectedPack];
   if (!d) return null;
 
+  // Daily sales decay — days_from_release vs gross_revenue_usd_1d
   const dailySalesData = useMemo(() =>
-    d.salesSinceRelease.labels.map((label, i) => ({
-      day: "Day " + label,
-      sales: d.salesSinceRelease.daily[i],
+    d.salesSinceRelease.days_from_release.map((day, i) => ({
+      day: "Day " + day,
+      gross_revenue_usd_1d: d.salesSinceRelease.gross_revenue_usd_1d[i],
     })), [d]
   );
 
+  // Cumulative sales — SUM(SUM(gross_revenue_usd_1d)) OVER (ORDER BY ds)
   const cumulativeData = useMemo(() =>
-    d.cumulativeSales.labels.map((label, i) => ({
-      day: "Day " + label,
-      sales: d.cumulativeSales.values[i],
+    d.cumulativeSales.days_from_release.map((day, i) => ({
+      day: "Day " + day,
+      cumulative_sales: d.cumulativeSales.cumulative_sales[i],
     })), [d]
   );
 
+  // Song-level sales since release
   const songTableData = useMemo(() =>
     d.songsSold.map((s, i) => ({
       rank: i + 1,
-      song: s.name,
-      day7: s.day7,
-      day30: s.day30,
-      day90: s.day90,
+      levelid: s.levelid,
+      sales_7d: s.sales_7d,
+      sales_30d: s.sales_30d,
+      sales_90d: s.sales_90d,
     })), [d]
   );
 
   const songColumns = [
     { key: "rank", label: "#", align: "center" as const },
-    { key: "song", label: "Song" },
-    { key: "day7", label: "Day 7", align: "right" as const, render: (v: unknown) => <span className="font-mono">{formatNum(v as number)}</span> },
-    { key: "day30", label: "Day 30", align: "right" as const, render: (v: unknown) => <span className="font-mono">{formatNum(v as number)}</span> },
-    { key: "day90", label: "Day 90", align: "right" as const, render: (v: unknown) => <span className="font-mono text-neon-cyan">{formatNum(v as number)}</span> },
+    { key: "levelid", label: "Song (Level ID)" },
+    { key: "sales_7d", label: "7d Sales", align: "right" as const, render: (v: unknown) => <span className="font-mono">{formatUSD(v as number)}</span> },
+    { key: "sales_30d", label: "30d Sales", align: "right" as const, render: (v: unknown) => <span className="font-mono">{formatUSD(v as number)}</span> },
+    { key: "sales_90d", label: "90d Sales", align: "right" as const, render: (v: unknown) => <span className="font-mono text-neon-cyan">{formatUSD(v as number)}</span> },
   ];
 
   return (
@@ -99,51 +103,55 @@ export default function PackRelease() {
       />
 
       {/* Pack Selector */}
-      <div className="mb-6">
+      <div className="flex flex-wrap gap-4 items-end mb-6">
         <PackSelector value={selectedPack} onChange={handlePackChange} />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground glass-card px-3 py-2 rounded-lg">
+          <Calendar size={14} />
+          <span>Release: <span className="text-neon-cyan font-mono">{d.original_release_date}</span></span>
+        </div>
       </div>
 
-      {/* Before/After — Day 1 Purchase Rate */}
+      {/* Before/After — Day 1 Attach Rate (attach_rate_l1) */}
       <h3 className="font-display text-sm font-semibold text-foreground mb-4">
-        New User Day 1 Purchase Rate — Before / After Release
+        New User Day 1 Attach Rate — Before / After Release
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <CompareCard
           title="7-Day Window"
-          beforeValue={String(d.beforeAfter.day1_before7D)}
-          afterValue={String(d.beforeAfter.day1_after7D)}
+          beforeValue={String(d.beforeAfter.attach_rate_l1_before_7d)}
+          afterValue={String(d.beforeAfter.attach_rate_l1_after_7d)}
           suffix="%"
         />
         <CompareCard
           title="28-Day Window"
-          beforeValue={String(d.beforeAfter.day1_before28D)}
-          afterValue={String(d.beforeAfter.day1_after28D)}
+          beforeValue={String(d.beforeAfter.attach_rate_l1_before_28d)}
+          afterValue={String(d.beforeAfter.attach_rate_l1_after_28d)}
           suffix="%"
         />
       </div>
 
-      {/* Before/After — Avg Revenue */}
+      {/* Before/After — Avg Revenue per New User */}
       <h3 className="font-display text-sm font-semibold text-foreground mb-4">
         New User First Day Avg Revenue — Before / After Release
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <CompareCard
           title="7-Day Window"
-          beforeValue={String(d.avgRevenue.before7D)}
-          afterValue={String(d.avgRevenue.after7D)}
+          beforeValue={String(d.avgRevenue.avg_rev_before_7d)}
+          afterValue={String(d.avgRevenue.avg_rev_after_7d)}
           prefix="$"
         />
         <CompareCard
           title="28-Day Window"
-          beforeValue={String(d.avgRevenue.before28D)}
-          afterValue={String(d.avgRevenue.after28D)}
+          beforeValue={String(d.avgRevenue.avg_rev_before_28d)}
+          afterValue={String(d.avgRevenue.avg_rev_after_28d)}
           prefix="$"
         />
       </div>
 
-      {/* Charts */}
+      {/* Charts — Days Since Release */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <ChartCard title="Daily Sales — Days Since Release">
+        <ChartCard title="Daily Revenue — Days Since Release">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={dailySalesData}>
               <defs>
@@ -154,9 +162,9 @@ export default function PackRelease() {
               </defs>
               <CartesianGrid {...GRID_STYLE} />
               <XAxis dataKey="day" tick={AXIS_STYLE} interval={2} />
-              <YAxis tick={AXIS_STYLE} tickFormatter={(v) => formatNum(v)} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [formatNum(value), "Daily Sales"]} />
-              <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.magenta} strokeWidth={2} fill="url(#dailyGrad)" />
+              <YAxis tick={AXIS_STYLE} tickFormatter={(v) => formatUSD(v)} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [formatUSD(value), "Daily Revenue"]} />
+              <Area type="monotone" dataKey="gross_revenue_usd_1d" stroke={CHART_COLORS.magenta} strokeWidth={2} fill="url(#dailyGrad)" name="Revenue (1d)" />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -172,9 +180,9 @@ export default function PackRelease() {
               </defs>
               <CartesianGrid {...GRID_STYLE} />
               <XAxis dataKey="day" tick={AXIS_STYLE} interval={2} />
-              <YAxis tick={AXIS_STYLE} tickFormatter={(v) => formatNum(v)} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [formatNum(value), "Cumulative Sales"]} />
-              <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.cyan} strokeWidth={2} fill="url(#cumGrad)" />
+              <YAxis tick={AXIS_STYLE} tickFormatter={(v) => formatUSD(v)} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value: number) => [formatUSD(value), "Cumulative Sales"]} />
+              <Area type="monotone" dataKey="cumulative_sales" stroke={CHART_COLORS.cyan} strokeWidth={2} fill="url(#cumGrad)" name="Cumulative" />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -182,7 +190,7 @@ export default function PackRelease() {
 
       {/* Songs Sold Table */}
       <DataTable
-        title="Songs Sold Since Release"
+        title="Song-Level Sales Since Release"
         columns={songColumns}
         data={songTableData}
       />
